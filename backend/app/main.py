@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -24,6 +25,32 @@ def create_record(
     db.refresh(new_record)
 
     return new_record
+
+
+@app.get("/records", response_model=list[schemas.RecordResponse])
+def list_records(
+    search: str | None = None,
+    db: Session = Depends(get_db),
+):
+    query = select(models.Record)
+
+    if search and search.strip():
+        # Wrapping the search text in % makes it a partial match,
+        # and ilike keeps the comparison case-insensitive.
+        pattern = f"%{search.strip()}%"
+
+        query = query.where(
+            or_(
+                models.Record.first_name.ilike(pattern),
+                models.Record.last_name.ilike(pattern),
+                models.Record.email.ilike(pattern),
+                models.Record.phone.ilike(pattern),
+                models.Record.organization.ilike(pattern),
+                models.Record.reference_number.ilike(pattern),
+            )
+        )
+
+    return db.scalars(query.order_by(models.Record.id)).all()
 
 
 @app.get("/records/{record_id}", response_model=schemas.RecordResponse)

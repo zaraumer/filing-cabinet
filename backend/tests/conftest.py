@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, delete
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
@@ -42,3 +42,16 @@ def setup_test_database():
 
     # Remove the test tables after the full test run.
     Base.metadata.drop_all(bind=test_engine)
+
+
+@pytest.fixture(autouse=True)
+def clear_records_table(setup_test_database):
+    db = TestingSessionLocal()
+
+    try:
+        db.execute(delete(models.Record))
+        db.commit()
+    finally:
+        db.close()
+
+    yield
