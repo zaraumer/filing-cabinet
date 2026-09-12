@@ -1,3 +1,7 @@
+import os
+import shutil
+import tempfile
+
 import pytest
 from sqlalchemy import create_engine, delete
 from sqlalchemy.engine import make_url
@@ -19,6 +23,12 @@ TestingSessionLocal = sessionmaker(
     autoflush=False,
     autocommit=False,
 )
+
+# Uploads during tests go to a temporary directory outside the repository,
+# so no test file is ever left behind in backend/uploads.
+test_upload_dir = tempfile.mkdtemp(prefix="filing-cabinet-test-uploads-")
+
+os.environ["UPLOAD_DIR"] = test_upload_dir
 
 
 def override_get_db():
@@ -43,12 +53,16 @@ def setup_test_database():
     # Remove the test tables after the full test run.
     Base.metadata.drop_all(bind=test_engine)
 
+    shutil.rmtree(test_upload_dir, ignore_errors=True)
+
 
 @pytest.fixture(autouse=True)
-def clear_records_table(setup_test_database):
+def clear_tables(setup_test_database):
     db = TestingSessionLocal()
 
     try:
+        # Source documents reference records, so they are removed first.
+        db.execute(delete(models.SourceDocument))
         db.execute(delete(models.Record))
         db.commit()
     finally:

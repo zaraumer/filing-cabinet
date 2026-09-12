@@ -1,3 +1,6 @@
+import Link from "next/link";
+
+import StatusBadge from "@/components/StatusBadge";
 import { formatRecordName, type RecordItem } from "@/lib/records";
 
 type RecordsTableProps = {
@@ -20,32 +23,6 @@ function cellValue(value: string | null) {
   }
 
   return value;
-}
-
-/**
- * record_status is a free-form string on the backend, so only the known
- * "active" value gets the green treatment. Anything else stays neutral.
- */
-function StatusBadge({ status }: { status: string }) {
-  const isActive = status.trim().toLowerCase() === "active";
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium capitalize ${
-        isActive
-          ? "bg-accent-soft text-accent-strong"
-          : "bg-page text-muted"
-      }`}
-    >
-      <span
-        aria-hidden="true"
-        className={`h-1.5 w-1.5 rounded-full ${
-          isActive ? "bg-accent" : "bg-muted"
-        }`}
-      />
-      {status}
-    </span>
-  );
 }
 
 export default function RecordsTable({ records }: RecordsTableProps) {
@@ -73,7 +50,13 @@ export default function RecordsTable({ records }: RecordsTableProps) {
               className="border-b border-line/70 transition-colors last:border-b-0 hover:bg-page"
             >
               <td className="px-5 py-4 font-medium text-ink">
-                {formatRecordName(record)}
+                {/* The name is the way into the full record. */}
+                <Link
+                  href={`/records/${record.id}`}
+                  className="rounded-sm underline decoration-line underline-offset-4 transition-colors hover:decoration-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                >
+                  {formatRecordName(record)}
+                </Link>
               </td>
               <td className="px-5 py-4 text-muted">{cellValue(record.email)}</td>
               <td className="px-5 py-4 text-muted">{cellValue(record.phone)}</td>
