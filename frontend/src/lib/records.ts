@@ -136,3 +136,112 @@ export function recordDocumentUrl(
 export function formatRecordName(record: RecordItem): string {
   return `${record.first_name} ${record.last_name}`.trim();
 }
+
+export type RecordFormData = {
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  province_state: string | null;
+  postal_zip: string | null;
+  organization: string | null;
+  reference_number: string | null;
+  record_status: string;
+  last_verified_date: string | null;
+};
+
+export type IntakeDocument = {
+  id: number;
+  original_filename: string;
+  content_type: string;
+  file_size: number;
+  uploaded_at: string;
+  extraction_status: string;
+  extracted_fields: RecordFormData | null;
+  created_record_id: number | null;
+};
+
+export type DuplicateMatch = {
+  record: RecordItem;
+  score: number;
+  reasons: string[];
+};
+
+export type DuplicateCheckResponse = {
+  matches: DuplicateMatch[];
+};
+
+export async function uploadIntakeDocument(
+  file: File
+): Promise<IntakeDocument> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(
+    `${API_BASE_URL}/intake/documents`,
+    {
+      method: "POST",
+      body: formData,
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Could not upload document.");
+  }
+
+  return response.json();
+}
+
+export async function checkIntakeDuplicates(
+  intakeId: number,
+  record: RecordFormData
+): Promise<DuplicateCheckResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/intake/documents/${intakeId}/duplicates`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(record),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Could not check for duplicate records.");
+  }
+
+  return response.json();
+}
+
+export async function createRecordFromIntake(
+  intakeId: number,
+  record: RecordFormData,
+  duplicateReviewed: boolean
+): Promise<RecordItem> {
+  const response = await fetch(
+    `${API_BASE_URL}/intake/documents/${intakeId}/create-record`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...record,
+        duplicate_reviewed: duplicateReviewed,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+
+    throw new Error(
+      error?.detail || "Could not create record."
+    );
+  }
+
+  return response.json();
+}

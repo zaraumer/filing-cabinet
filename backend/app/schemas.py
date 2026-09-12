@@ -18,6 +18,10 @@ class RecordCreate(BaseModel):
     last_verified_date: date | None = None
 
 
+class IntakeRecordCreate(RecordCreate):
+    duplicate_reviewed: bool = False
+
+
 class RecordResponse(RecordCreate):
     id: int
 
@@ -25,12 +29,6 @@ class RecordResponse(RecordCreate):
 
 
 class SourceDocumentResponse(BaseModel):
-    """Metadata for an uploaded source document.
-
-    stored_filename is intentionally left out: it is a storage detail, and the
-    frontend reaches documents through the record-scoped download endpoint.
-    """
-
     id: int
     record_id: int
     original_filename: str
@@ -39,3 +37,26 @@ class SourceDocumentResponse(BaseModel):
     uploaded_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class IntakeDocumentResponse(BaseModel):
+    id: int
+    original_filename: str
+    content_type: str
+    file_size: int
+    uploaded_at: datetime
+    extraction_status: str
+    extracted_fields: dict[str, str | None] | None
+    created_record_id: int | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DuplicateMatch(BaseModel):
+    record: RecordResponse
+    score: int
+    reasons: list[str]
+
+
+class DuplicateCheckResponse(BaseModel):
+    matches: list[DuplicateMatch]

@@ -1,6 +1,15 @@
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -9,23 +18,69 @@ from app.database import Base
 class Record(Base):
     __tablename__ = "records"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
-    first_name: Mapped[str] = mapped_column(String(100))
-    last_name: Mapped[str] = mapped_column(String(100))
-    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    first_name: Mapped[str] = mapped_column(
+        String(100),
+    )
 
-    address: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    city: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    province_state: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    postal_zip: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    last_name: Mapped[str] = mapped_column(
+        String(100),
+    )
 
-    organization: Mapped[str | None] = mapped_column(String(150), nullable=True)
-    reference_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    email: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
 
-    record_status: Mapped[str] = mapped_column(String(50), default="active")
-    last_verified_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    phone: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
+    address: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    city: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    province_state: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    postal_zip: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+
+    organization: Mapped[str | None] = mapped_column(
+        String(150),
+        nullable=True,
+    )
+
+    reference_number: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    record_status: Mapped[str] = mapped_column(
+        String(50),
+        default="active",
+    )
+
+    last_verified_date: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
+    )
 
     source_documents: Mapped[list["SourceDocument"]] = relationship(
         back_populates="record",
@@ -33,36 +88,102 @@ class Record(Base):
 
 
 class SourceDocument(Base):
-    """An uploaded source document (PDF or scanned image) kept with its record.
+    """A source document already linked to an existing record.
 
-    Only metadata is stored here. The file itself stays on disk under the
-    upload directory, named by stored_filename.
+    Only metadata is stored in PostgreSQL.
+    The actual file remains in the local upload directory.
     """
 
     __tablename__ = "source_documents"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
 
     record_id: Mapped[int] = mapped_column(
         ForeignKey("records.id"),
         index=True,
     )
 
-    # What the uploader called the file, kept for display only.
-    original_filename: Mapped[str] = mapped_column(String(255))
+    original_filename: Mapped[str] = mapped_column(
+        String(255),
+    )
 
-    # The generated name actually used on disk. Unique so a repeated upload of
-    # the same filename never overwrites an existing source document.
-    stored_filename: Mapped[str] = mapped_column(String(255), unique=True)
+    stored_filename: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+    )
 
-    content_type: Mapped[str] = mapped_column(String(100))
+    content_type: Mapped[str] = mapped_column(
+        String(100),
+    )
 
-    # BigInteger leaves room for files larger than the current 10 MB limit.
-    file_size: Mapped[int] = mapped_column(BigInteger)
+    file_size: Mapped[int] = mapped_column(
+        BigInteger,
+    )
 
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
     )
 
-    record: Mapped["Record"] = relationship(back_populates="source_documents")
+    record: Mapped["Record"] = relationship(
+        back_populates="source_documents",
+    )
+
+
+class IntakeDocument(Base):
+    """A document uploaded before a client record is created.
+
+    The original file is preserved on disk.
+    Extracted fields are stored here so staff can review and correct them
+    before creating an official Record.
+    """
+
+    __tablename__ = "intake_documents"
+
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        index=True,
+    )
+
+    original_filename: Mapped[str] = mapped_column(
+        String(255),
+    )
+
+    stored_filename: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+    )
+
+    content_type: Mapped[str] = mapped_column(
+        String(100),
+    )
+
+    file_size: Mapped[int] = mapped_column(
+        BigInteger,
+    )
+
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+
+    extraction_status: Mapped[str] = mapped_column(
+        String(50),
+        default="pending",
+    )
+
+    extracted_fields: Mapped[dict | None] = mapped_column(
+        JSON,
+        nullable=True,
+    )
+
+    created_record_id: Mapped[int | None] = mapped_column(
+        ForeignKey("records.id"),
+        nullable=True,
+        index=True,
+    )

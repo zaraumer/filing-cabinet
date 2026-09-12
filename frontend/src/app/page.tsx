@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import RecordsTable from "@/components/RecordsTable";
@@ -7,7 +8,6 @@ import { fetchRecords, type RecordItem } from "@/lib/records";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-/** Small inline magnifier so the search field reads as a search field. */
 function SearchIcon() {
   return (
     <svg
@@ -30,19 +30,16 @@ export default function RecordsPage() {
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Incremented by the retry button so the effect below runs again.
   const [reloadCount, setReloadCount] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
 
-    // Wait a moment before querying so typing does not fire a request per key.
     const timer = setTimeout(async () => {
       setIsLoading(true);
 
       try {
         const results = await fetchRecords(search, controller.signal);
-
         setRecords(results);
         setError(null);
       } catch (caughtError) {
@@ -54,7 +51,7 @@ export default function RecordsPage() {
         setError(
           caughtError instanceof Error
             ? caughtError.message
-            : "Unknown error",
+            : "Unknown error"
         );
       } finally {
         if (!controller.signal.aborted) {
@@ -75,13 +72,23 @@ export default function RecordsPage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl px-6 py-10">
-      <div className="max-w-2xl">
-        <h1 className="font-serif text-4xl leading-tight tracking-tight text-ink">
-          Records
-        </h1>
-        <p className="mt-2 text-sm text-muted">
-          Search and review digitized records.
-        </p>
+      <div className="flex items-start justify-between gap-6">
+        <div className="max-w-2xl">
+          <h1 className="font-serif text-4xl leading-tight tracking-tight text-ink">
+            Records
+          </h1>
+
+          <p className="mt-2 text-sm text-muted">
+            Search and review digitized records.
+          </p>
+        </div>
+
+        <Link
+          href="/records/import"
+          className="shrink-0 rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        >
+          Import document
+        </Link>
       </div>
 
       <div className="mt-8 w-full sm:max-w-2xl">
@@ -96,6 +103,7 @@ export default function RecordsPage() {
           <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted">
             <SearchIcon />
           </span>
+
           <input
             id="record-search"
             type="search"
@@ -109,10 +117,14 @@ export default function RecordsPage() {
 
       <section className="mt-8">
         <div className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="text-sm font-medium text-ink">All records</h2>
-          {/* Hidden on failure, where a count of zero would be misleading. */}
+          <h2 className="text-sm font-medium text-ink">
+            All records
+          </h2>
+
           {error ? null : (
-            <span className="text-sm text-muted">{recordCountLabel}</span>
+            <span className="text-sm text-muted">
+              {recordCountLabel}
+            </span>
           )}
         </div>
 
@@ -121,10 +133,12 @@ export default function RecordsPage() {
             <h3 className="text-sm font-semibold text-ink">
               Could not load records
             </h3>
+
             <p className="mt-1.5 max-w-prose text-sm text-muted">
               The request to the backend failed ({error}). Confirm the API is
               running and try again.
             </p>
+
             <button
               type="button"
               onClick={() => setReloadCount((count) => count + 1)}
