@@ -65,10 +65,14 @@ def clear_tables(setup_test_database):
 
     try:
         # Delete child rows before the records they reference.
+        db.execute(delete(models.AuditEvent))
+        db.execute(delete(models.ProposedUpdate))
+        db.execute(delete(models.VerificationRequest))
         db.execute(delete(models.SourceDocument))
         db.execute(delete(models.IntakeDocument))
         db.execute(delete(models.Record))
         db.commit()
+
     finally:
         db.close()
 

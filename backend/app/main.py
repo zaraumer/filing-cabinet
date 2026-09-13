@@ -1,4 +1,6 @@
 import re
+import secrets
+from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
@@ -703,3 +705,409 @@ def create_record_from_intake(
     db.refresh(record)
 
     return record
+
+# Verification
+
+
+@app.post(
+    "/records/{record_id}/verification-requests",
+    response_model=schemas.VerificationRequestResponse,
+    status_code=201,
+)
+def create_verification_request(
+    record_id: int,
+    request_data: schemas.VerificationRequestCreate,
+    db: Session = Depends(get_db),
+):
+    record = get_existing_record(
+        record_id,
+        db,
+    )
+
+    recipient_email = (
+        str(request_data.recipient_email)
+        if request_data.recipient_email
+        else record.email
+    )
+
+    if not recipient_email:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "A recipient email is required because "
+                "this record does not have an email address."
+            ),
+        )
+
+    now = datetime.now(timezone.utc)
+
+    verification_request = models.VerificationRequest(
+        record_id=record.id,
+        recipient_email=recipient_email,
+        token=secrets.token_urlsafe(32),
+        status="pending",
+        expires_at=now + timedelta(
+            days=request_data.expires_in_days
+        ),
+    )
+
+    db.add(verification_request)
+
+    # The request ID is needed for its audit event.
+    db.flush()
+
+    audit_event = models.AuditEvent(
+        record_id=record.id,
+        verification_request_id=verification_request.id,
+        event_type="verification_requested",
+        actor_type="staff",
+        details={
+            "recipient_email": recipient_email,
+            "expires_in_days": request_data.expires_in_days,
+        },
+    )
+
+    db.add(audit_event)
+    db.commit()
+    db.refresh(verification_request)
+
+    return verification_request
+
+@app.get(
+    "/verification/{token}",
+    response_model=schemas.VerificationViewResponse,
+)
+def get_verification(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    verification_request = db.scalar(
+        select(models.VerificationRequest).where(
+            models.VerificationRequest.token == token
+        )
+    )
+
+    if verification_request is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Verification request not found",
+        )
+
+    if verification_request.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=410,
+            detail="Verification request has expired",
+        )
+
+    record = get_existing_record(
+        verification_request.record_id,
+        db,
+    )
+
+    return {
+        "verification_request": verification_request,
+        "record": record,
+    }
+
+@app.post(
+    "/verification/{token}/proposed-updates",
+    response_model=schemas.ProposedUpdateResponse,
+    status_code=201,
+)
+def submit_proposed_update(
+    token: str,
+    update_data: schemas.ProposedUpdateCreate,
+    db: Session = Depends(get_db),
+):
+    verification_request = db.scalar(
+        select(models.VerificationRequest).where(
+            models.VerificationRequest.token == token
+        )
+    )
+
+    if verification_request is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Verification request not found",
+        )
+
+    if verification_request.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=410,
+            detail="Verification request has expired",
+        )
+
+    if verification_request.status != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail="This verification request is no longer accepting updates",
+        )
+
+    existing_update = db.scalar(
+        select(models.ProposedUpdate).where(
+            models.ProposedUpdate.verification_request_id
+            == verification_request.id
+        )
+    )
+
+    if existing_update is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "A proposed update has already been submitted "
+                "for this verification request."
+            ),
+        )
+
+    proposed_fields = update_data.proposed_fields.model_dump(
+        exclude_unset=True
+    )
+
+    proposed_update = models.ProposedUpdate(
+        record_id=verification_request.record_id,
+        verification_request_id=verification_request.id,
+        proposed_fields=proposed_fields,
+        status="pending",
+    )
+
+    db.add(proposed_update)
+    db.flush()
+
+    verification_request.status = "submitted"
+
+    audit_event = models.AuditEvent(
+        record_id=verification_request.record_id,
+        verification_request_id=verification_request.id,
+        proposed_update_id=proposed_update.id,
+        event_type="proposed_update_submitted",
+        actor_type="record_owner",
+        details={
+            "fields": list(proposed_fields.keys()),
+        },
+    )
+
+    db.add(audit_event)
+    db.commit()
+    db.refresh(proposed_update)
+
+    return proposed_update
+
+# Proposed update review
+
+
+@app.get(
+    "/proposed-updates",
+    response_model=list[schemas.ProposedUpdateResponse],
+)
+def list_proposed_updates(
+    status: str | None = None,
+    db: Session = Depends(get_db),
+):
+    query = select(models.ProposedUpdate)
+
+    if status:
+        query = query.where(
+            models.ProposedUpdate.status == status
+        )
+
+    query = query.order_by(
+        models.ProposedUpdate.submitted_at.desc()
+    )
+
+    return db.scalars(query).all()
+
+
+@app.post(
+    "/proposed-updates/{proposed_update_id}/approve",
+    response_model=schemas.ProposedUpdateResponse,
+)
+def approve_proposed_update(
+    proposed_update_id: int,
+    review_data: schemas.ProposedUpdateReview,
+    db: Session = Depends(get_db),
+):
+    proposed_update = db.get(
+        models.ProposedUpdate,
+        proposed_update_id,
+    )
+
+    if proposed_update is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Proposed update not found",
+        )
+
+    if proposed_update.status != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail="This proposed update has already been reviewed",
+        )
+
+    record = get_existing_record(
+        proposed_update.record_id,
+        db,
+    )
+
+    verification_request = db.get(
+        models.VerificationRequest,
+        proposed_update.verification_request_id,
+    )
+
+    if verification_request is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Verification request not found",
+        )
+
+    changes = {}
+
+    for field_name, new_value in proposed_update.proposed_fields.items():
+        old_value = getattr(record, field_name)
+
+        if old_value != new_value:
+            changes[field_name] = {
+                "old": old_value,
+                "new": new_value,
+            }
+
+            setattr(
+                record,
+                field_name,
+                new_value,
+            )
+
+    today = datetime.now(timezone.utc).date()
+    record.last_verified_date = today
+
+    reviewed_at = datetime.now(timezone.utc)
+
+    proposed_update.status = "approved"
+    proposed_update.reviewed_at = reviewed_at
+    proposed_update.review_note = review_data.review_note
+
+    verification_request.status = "completed"
+    verification_request.completed_at = reviewed_at
+
+    approval_event = models.AuditEvent(
+        record_id=record.id,
+        verification_request_id=verification_request.id,
+        proposed_update_id=proposed_update.id,
+        event_type="proposed_update_approved",
+        actor_type="staff",
+        details={
+            "review_note": review_data.review_note,
+        },
+    )
+
+    db.add(approval_event)
+
+    if changes:
+        record_updated_event = models.AuditEvent(
+            record_id=record.id,
+            verification_request_id=verification_request.id,
+            proposed_update_id=proposed_update.id,
+            event_type="record_updated",
+            actor_type="staff",
+            details={
+                "changes": changes,
+            },
+        )
+
+        db.add(record_updated_event)
+
+    db.commit()
+    db.refresh(proposed_update)
+
+    return proposed_update
+
+
+@app.post(
+    "/proposed-updates/{proposed_update_id}/reject",
+    response_model=schemas.ProposedUpdateResponse,
+)
+def reject_proposed_update(
+    proposed_update_id: int,
+    review_data: schemas.ProposedUpdateReview,
+    db: Session = Depends(get_db),
+):
+    proposed_update = db.get(
+        models.ProposedUpdate,
+        proposed_update_id,
+    )
+
+    if proposed_update is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Proposed update not found",
+        )
+
+    if proposed_update.status != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail="This proposed update has already been reviewed",
+        )
+
+    verification_request = db.get(
+        models.VerificationRequest,
+        proposed_update.verification_request_id,
+    )
+
+    if verification_request is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Verification request not found",
+        )
+
+    reviewed_at = datetime.now(timezone.utc)
+
+    proposed_update.status = "rejected"
+    proposed_update.reviewed_at = reviewed_at
+    proposed_update.review_note = review_data.review_note
+
+    verification_request.status = "completed"
+    verification_request.completed_at = reviewed_at
+
+    audit_event = models.AuditEvent(
+        record_id=proposed_update.record_id,
+        verification_request_id=verification_request.id,
+        proposed_update_id=proposed_update.id,
+        event_type="proposed_update_rejected",
+        actor_type="staff",
+        details={
+            "review_note": review_data.review_note,
+        },
+    )
+
+    db.add(audit_event)
+    db.commit()
+    db.refresh(proposed_update)
+
+    return proposed_update
+
+    # Audit history
+
+
+@app.get(
+    "/records/{record_id}/audit-events",
+    response_model=list[schemas.AuditEventResponse],
+)
+def list_audit_events(
+    record_id: int,
+    db: Session = Depends(get_db),
+):
+    get_existing_record(
+        record_id,
+        db,
+    )
+
+    query = (
+        select(models.AuditEvent)
+        .where(
+            models.AuditEvent.record_id == record_id
+        )
+        .order_by(
+            models.AuditEvent.created_at.desc()
+        )
+    )
+
+    return db.scalars(query).all()
