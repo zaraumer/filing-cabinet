@@ -1,6 +1,6 @@
 # Filing Cabinet
 
-A records management platform that turns physical and scanned files into searchable digital records and makes it easier to keep that information accurate and up to date.
+A records management platform that turns document-based information into searchable digital records and makes it easier to keep that information accurate and up to date.
 
 ## Why I Started This
 
@@ -16,58 +16,73 @@ That's where Filing Cabinet came from.
 
 ## What It Does
 
-Filing Cabinet takes scanned documents and existing digital files and turns the information inside them into structured, searchable records.
+Filing Cabinet takes existing digital documents and turns the information inside them into structured, searchable records.
 
-Staff can compare extracted information with the original document before accepting it. Once a record exists, the system can identify missing or outdated information and flag possible duplicate profiles.
+Staff can upload a PDF, extract supported information from it, and compare the extracted fields with the original document before creating a record. The information can be corrected during this review so that the document isn't treated as automatically correct.
 
-When information needs to be updated, a verification request can be sent directly to the person connected to the record. They can confirm existing information or submit changes without staff having to collect every update through individual calls and emails.
+Before a new record is created, Filing Cabinet also checks for possible duplicates using information such as names, emails, phone numbers, addresses, and reference numbers. Potential matches are shown for staff review rather than automatically merging or deleting records.
 
-Submitted changes go through a review process before becoming part of the official record. Previous values are kept so there is a clear history of what changed, when it changed, and where the information came from.
+Once a record exists, it can be searched using details like a name, email, phone number, organization, or reference number. The original source document also stays connected to the record it came from.
+
+When information needs to be updated, staff can create a verification request for the person connected to the record. They can review their existing information and submit corrections through a verification link instead of staff having to collect every update through individual calls and emails.
+
+Submitted changes don't immediately overwrite the official record. They go into a review queue where staff can compare the current and proposed information before approving or rejecting the update.
+
+Approved changes are applied to the record and added to an audit history so there is a clear trail of what changed and when.
 
 ## How It Works
 
 ```text
-Physical / Scanned File
-          |
-          v
-    Upload Document
-          |
-          v
-   Extract Information
-          |
-          v
-      Staff Review
-          |
-          v
-      Digital Record
-          |
-          v
- Missing / Outdated?
-          |
-          v
- Request Information
-          |
-          v
-    Review Changes
-          |
-          v
-     Updated Record
+      Digital Document
+             |
+             v
+       Upload Document
+             |
+             v
+     Extract Information
+             |
+             v
+        Staff Review
+             |
+             v
+       Duplicate Check
+             |
+             v
+        Digital Record
+             |
+             v
+    Verification Request
+             |
+             v
+     Proposed Changes
+             |
+             v
+        Staff Review
+          /       \
+         v         v
+      Approve    Reject
+         |
+         v
+    Updated Record
+         |
+         v
+      Audit History
 ```
 
 ## Core Features
 
-* Document and PDF upload
-* Information extraction from existing records
-* Human review of extracted fields
-* Structured and searchable profiles
-* Source tracking for individual fields
-* Missing and outdated information detection
-* Duplicate record detection
-* Secure information verification requests
-* Staff review and approval of submitted changes
-* Record version history and audit logging
-* Role-based access
-* Search and filtering
+- PDF document upload and structured field extraction
+- Human review of extracted information before record creation
+- Structured PostgreSQL records with searchable client information
+- Search by name, email, phone number, organization, and reference number
+- Original source documents linked to their records
+- Explainable duplicate detection with staff review
+- 500+ synthetic records with deliberate duplicate and near-duplicate cases
+- Record verification links for proposed information updates
+- Staff review and approval or rejection of submitted changes
+- Audit history for verification activity and approved record changes
+- Database migrations for evolving the PostgreSQL schema
+- Automated backend testing for record, document, duplicate, and verification workflows
 
 ## Use Cases
 
@@ -85,11 +100,12 @@ The information changes between industries, but the basic problem stays the same
 
 ## Tech Stack
 
-|                          | Technology                               |
-| ------------------------ | ---------------------------------------- |
-| Frontend                 | Next.js, React, TypeScript, Tailwind CSS |
-| Backend                  | Python, FastAPI                          |
-| Database                 | PostgreSQL                               |
-| Background Processing    | Redis, Celery                            |
-| Testing                  | Pytest, Playwright                       |
-| Development & Deployment | Docker, Git, GitHub                      |
+| **Area** | **Technology** |
+| --- | --- |
+| Frontend | Next.js, React, TypeScript, Tailwind CSS |
+| Backend | Python, FastAPI |
+| Database | PostgreSQL, SQLAlchemy |
+| Database Migrations | Alembic |
+| Document Processing | pypdf |
+| Testing | Pytest |
+| Development | Git, GitHub |
