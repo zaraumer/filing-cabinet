@@ -8,7 +8,6 @@ from app.main import app
 
 client = TestClient(app)
 
-# Enough of a PDF header that the bytes are not obviously nonsense.
 PDF_BYTES = b"%PDF-1.4\nsynthetic test document\n%%EOF\n"
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"synthetic test image"
 
@@ -56,7 +55,7 @@ def test_upload_document_succeeds_for_valid_file():
     assert data["file_size"] == len(PDF_BYTES)
     assert data["uploaded_at"]
 
-    # The storage filename is a backend detail and stays out of the response.
+    # The storage filename is a backend detail and stays out of the response
     assert "stored_filename" not in data
 
 
@@ -129,7 +128,7 @@ def test_uploading_the_same_filename_twice_keeps_both_documents():
     assert second.status_code == 201
     assert first.json()["id"] != second.json()["id"]
 
-    # Both files are still readable, so neither overwrote the other.
+    # Both files are still readable, so neither overwrote the other
     first_download = client.get(
         f"/records/{record['id']}/documents/{first.json()['id']}"
     )
@@ -154,7 +153,7 @@ def test_unsupported_file_type_is_rejected():
     assert response.status_code == 415
     assert "Unsupported file type" in response.json()["detail"]
 
-    # Nothing was recorded for the record.
+    # Nothing was recorded for the record
     assert client.get(f"/records/{record['id']}/documents").json() == []
 
 
@@ -222,7 +221,7 @@ def test_stored_filename_does_not_reuse_the_uploaded_filename():
     assert "escape" not in stored_name
     assert stored_name.endswith(".pdf")
 
-    # The readable name is kept for display, without any directory part.
+    # The readable name is kept for display without any directory part
     documents = client.get(f"/records/{record['id']}/documents").json()
 
     assert documents[0]["original_filename"] == "escape attempt.pdf"

@@ -12,7 +12,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Alembic uses this metadata to detect our SQLAlchemy models.
+#  Metadata used for database migrations
 target_metadata = Base.metadata
 
 

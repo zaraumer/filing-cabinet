@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
+  confirmVerification,
   fetchVerification,
   submitProposedUpdate,
   type ProposedRecordFields,
@@ -34,17 +35,16 @@ export default function VerificationForm({
 }: VerificationFormProps) {
   const [verification, setVerification] =
     useState<VerificationView | null>(null);
-
   const [form, setForm] =
     useState<ProposedRecordFields>({});
-
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] =
     useState<string | null>(null);
-
   const [submitted, setSubmitted] = useState(false);
+  const [confirmedWithoutChanges, setConfirmedWithoutChanges] =
+    useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,7 +106,6 @@ export default function VerificationForm({
     for (const field of EDITABLE_FIELDS) {
       const currentValue =
         verification.record[field.key] ?? "";
-
       const formValue =
         form[field.key] ?? "";
 
@@ -160,6 +159,7 @@ export default function VerificationForm({
         changedFields
       );
 
+      setConfirmedWithoutChanges(false);
       setSubmitted(true);
     } catch (caughtError) {
       setError(
@@ -169,6 +169,27 @@ export default function VerificationForm({
       );
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleConfirm() {
+    setIsConfirming(true);
+    setError(null);
+
+    try {
+      await confirmVerification(token);
+
+      // No corrections means the request can finish without staff review.
+      setConfirmedWithoutChanges(true);
+      setSubmitted(true);
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Could not confirm your information."
+      );
+    } finally {
+      setIsConfirming(false);
     }
   }
 
@@ -207,17 +228,19 @@ export default function VerificationForm({
       <main className="mx-auto w-full max-w-3xl px-6 py-12">
         <div className="rounded-md border border-line bg-surface p-8">
           <p className="text-xs font-medium uppercase tracking-wide text-accent">
-            Submitted
+            {confirmedWithoutChanges ? "Confirmed" : "Submitted"}
           </p>
 
           <h1 className="mt-2 font-serif text-3xl text-ink">
-            Your changes were sent for review
+            {confirmedWithoutChanges
+              ? "Your information is confirmed"
+              : "Your changes were sent for review"}
           </h1>
 
           <p className="mt-3 max-w-xl text-sm leading-6 text-muted">
-            Your record has not been changed yet. A staff member
-            will review the corrections before they become part of
-            the official record.
+            {confirmedWithoutChanges
+              ? "No corrections were submitted. Your record has been marked as verified."
+              : "Your record has not been changed yet. A staff member will review the corrections before they become part of the official record."}
           </p>
         </div>
       </main>
@@ -304,7 +327,9 @@ export default function VerificationForm({
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-sm font-semibold text-ink">
-                Submit corrections
+                {changedFieldCount === 0
+                  ? "Confirm your information"
+                  : "Submit corrections"}
               </h2>
 
               <p className="mt-1 text-sm text-muted">
@@ -318,18 +343,28 @@ export default function VerificationForm({
               </p>
             </div>
 
-            <button
-              type="submit"
-              disabled={
-                isSubmitting ||
-                changedFieldCount === 0
-              }
-              className="rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {isSubmitting
-                ? "Submitting…"
-                : "Submit changes"}
-            </button>
+            {changedFieldCount === 0 ? (
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={isConfirming}
+                className="rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isConfirming
+                  ? "Confirming…"
+                  : "Everything is correct"}
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isSubmitting
+                  ? "Submitting…"
+                  : "Submit changes"}
+              </button>
+            )}
           </div>
 
           {error ? (

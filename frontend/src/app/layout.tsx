@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
+
 import { DM_Sans, DM_Serif_Display, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
 import SiteHeader from "@/components/SiteHeader";
 
-// DM Sans carries all functional UI: navigation, body copy, tables, inputs.
+// Main UI font
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   subsets: ["latin"],
 });
 
-// DM Serif Display is used sparingly: the wordmark and major page headings.
+// Headings and wordmark
 const dmSerifDisplay = DM_Serif_Display({
   variable: "--font-dm-serif-display",
   weight: "400",
   subsets: ["latin"],
 });
 
-// Reserved for reference numbers and other identifiers.
+// Reference numbers and IDs
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],

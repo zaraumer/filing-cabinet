@@ -359,6 +359,17 @@ export async function fetchVerification(
   return response.json();
 }
 
+export async function confirmVerification(
+  token: string
+): Promise<VerificationRequest> {
+  return requestJson<VerificationRequest>(
+    `/verification/${encodeURIComponent(token)}/confirm`,
+    {
+      method: "POST",
+    }
+  );
+}
+
 export async function submitProposedUpdate(
   token: string,
   proposedFields: ProposedRecordFields

@@ -259,7 +259,7 @@ def find_duplicate_matches(
             record,
         )
 
-        # A name match on its own is too weak to flag.
+        # A name match on its own is too weak to flag
         if score >= 35:
             matches.append(
                 {
@@ -553,7 +553,7 @@ def upload_intake_document(
                 )
 
         except Exception:
-            # Keep the original document even if text extraction fails.
+            # Keep the original document
             extraction_status = (
                 "manual_review"
             )
@@ -686,7 +686,7 @@ def create_record_from_intake(
 
     db.add(record)
 
-    # Need the ID before linking the original document.
+    # Need the ID before linking the original document
     db.flush()
 
     source_document = models.SourceDocument(
@@ -753,7 +753,7 @@ def create_verification_request(
 
     db.add(verification_request)
 
-    # The request ID is needed for its audit event.
+    # The request ID is needed for audit event
     db.flush()
 
     audit_event = models.AuditEvent(
@@ -772,6 +772,7 @@ def create_verification_request(
     db.refresh(verification_request)
 
     return verification_request
+
 
 @app.get(
     "/verification/{token}",
@@ -808,6 +809,66 @@ def get_verification(
         "verification_request": verification_request,
         "record": record,
     }
+
+
+@app.post(
+    "/verification/{token}/confirm",
+    response_model=schemas.VerificationRequestResponse,
+)
+def confirm_verification(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    verification_request = db.scalar(
+        select(models.VerificationRequest).where(
+            models.VerificationRequest.token == token
+        )
+    )
+
+    if verification_request is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Verification request not found",
+        )
+
+    if verification_request.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=410,
+            detail="Verification request has expired",
+        )
+
+    if verification_request.status != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail="This verification request has already been completed",
+        )
+
+    record = get_existing_record(
+        verification_request.record_id,
+        db,
+    )
+
+    completed_at = datetime.now(timezone.utc)
+
+    # Nothing changed, request can finish without staff review
+    verification_request.status = "completed"
+    verification_request.completed_at = completed_at
+    record.last_verified_date = completed_at.date()
+
+    audit_event = models.AuditEvent(
+        record_id=record.id,
+        verification_request_id=verification_request.id,
+        event_type="verification_confirmed",
+        actor_type="record_owner",
+        details=None,
+    )
+
+    db.add(audit_event)
+    db.commit()
+    db.refresh(verification_request)
+
+    return verification_request
+
 
 @app.post(
     "/verification/{token}/proposed-updates",

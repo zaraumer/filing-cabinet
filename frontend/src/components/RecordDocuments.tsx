@@ -13,8 +13,7 @@ type RecordDocumentsProps = {
   recordId: number;
 };
 
-// Mirrors ALLOWED_CONTENT_TYPES in backend/app/storage.py. The backend is
-// still the check that matters; this only filters the file picker.
+// Match the file types accepted by the backend
 const ACCEPTED_FILE_TYPES = "application/pdf,image/png,image/jpeg";
 
 const CONTENT_TYPE_LABELS: Record<string, string> = {
@@ -35,7 +34,6 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** uploaded_at is an ISO timestamp; this component only renders on the client. */
 function formatUploadedAt(value: string): string {
   const uploadedAt = new Date(value);
 
@@ -62,7 +60,7 @@ export default function RecordDocuments({ recordId }: RecordDocumentsProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadedName, setUploadedName] = useState<string | null>(null);
 
-  // Incremented after an upload so the list below reloads from the backend.
+  // Reload the document list after an upload
   const [reloadCount, setReloadCount] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -215,6 +213,7 @@ export default function RecordDocuments({ recordId }: RecordDocumentsProps) {
                   >
                     {document.original_filename}
                   </a>
+
                   <p className="mt-1 text-xs text-muted">
                     {documentTypeLabel(document.content_type)} ·{" "}
                     {formatFileSize(document.file_size)}

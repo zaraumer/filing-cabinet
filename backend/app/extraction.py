@@ -143,7 +143,7 @@ def extract_record_fields(
         r"Last Verified Date",
     )
 
-    # Some forms have one Name field instead of separate first/last fields.
+    # Adjust since some forms have one Name field instead of separate first/last fields.
     if not extracted["first_name"] and not extracted["last_name"]:
         full_name = extract_label_value(
             text,

@@ -12,8 +12,7 @@ from app.database import Base, DATABASE_URL, get_db
 from app.main import app
 
 
-# Use the same PostgreSQL login as development,
-# but connect to the separate test database.
+# Use the same PostgreSQL login as development but connect to the separate test database
 test_database_url = make_url(DATABASE_URL).set(
     database="filing_cabinet_test"
 )
@@ -27,7 +26,7 @@ TestingSessionLocal = sessionmaker(
 )
 
 
-# Test uploads go to a temporary directory outside the repo.
+# Test uploads go to a temporary directory outside the repo
 test_upload_dir = tempfile.mkdtemp(
     prefix="filing-cabinet-test-uploads-"
 )
@@ -64,7 +63,7 @@ def clear_tables(setup_test_database):
     db = TestingSessionLocal()
 
     try:
-        # Delete child rows before the records they reference.
+        # Delete child rows before the records they reference
         db.execute(delete(models.AuditEvent))
         db.execute(delete(models.ProposedUpdate))
         db.execute(delete(models.VerificationRequest))

@@ -1,8 +1,3 @@
-/**
- * Application header. Shows the wordmark and the sections that exist today.
- * Additional sections (Documents, Verification) belong in SECTIONS once those
- * pages are actually implemented.
- */
 const SECTIONS = [{ label: "Records", isCurrent: true }];
 
 export default function SiteHeader() {

@@ -1,7 +1,3 @@
-/**
- * record_status is a free-form string on the backend, so only the known
- * "active" value gets the green treatment. Anything else stays neutral.
- */
 export default function StatusBadge({ status }: { status: string }) {
   const isActive = status.trim().toLowerCase() === "active";
 

@@ -1,24 +1,19 @@
 @import "tailwindcss";
 
-/*
- * Filing Cabinet design tokens.
- * Defined once here so components use named colours (bg-surface, text-muted)
- * instead of repeating hex values.
- */
 @theme {
-  /* Warm cream page behind white content surfaces. */
+  /* Main colours */
   --color-page: #f7f6f2;
   --color-surface: #ffffff;
-
   --color-ink: #20211f;
   --color-muted: #686a65;
   --color-line: #dedcd5;
 
-  /* Muted forest green accent, plus the pale/dark pair used by status badges. */
+  /* Accent colours */
   --color-accent: #355e4a;
   --color-accent-soft: #eaf1ec;
   --color-accent-strong: #24432f;
 
+  /* Fonts */
   --font-sans: var(--font-dm-sans);
   --font-serif: var(--font-dm-serif-display);
   --font-mono: var(--font-geist-mono);

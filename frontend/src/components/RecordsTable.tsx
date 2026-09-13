@@ -16,7 +16,7 @@ const COLUMN_HEADINGS = [
   "Status",
 ];
 
-/** Empty fields come back as null from the API, so show a placeholder instead. */
+//Empty fields come back as null from the API, so show a placeholder instead.
 function cellValue(value: string | null) {
   if (!value) {
     return <span className="text-line">—</span>;
